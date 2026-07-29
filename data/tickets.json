@@ -5,6 +5,7 @@
     "status": "closed",
     "agentId": "AGT-10",
     "categoryId": "CAT-NET",
+    "createdAt": "2026-07-27T08:00:00Z",
     "resolution": {
       "id": "RES-001",
       "description": "Se actualizó el cliente VPN y se renovaron credenciales.",
@@ -16,13 +17,91 @@
     "title": "Pantalla azul al iniciar",
     "status": "open",
     "agentId": "AGT-12",
-    "categoryId": "CAT-HW"
+    "categoryId": "CAT-HW",
+    "createdAt": "2026-07-28T09:00:00Z"
   },
   {
     "id": "TKT-003",
     "title": "Restablecimiento de contraseña ERP",
     "status": "in_progress",
     "agentId": "AGT-10",
-    "categoryId": "CAT-ACC"
+    "categoryId": "CAT-ACC",
+    "createdAt": "2026-07-28T09:30:00Z"
+  },
+  {
+    "id": "TKT-004",
+    "title": "Error al abrir hoja de cálculo",
+    "status": "closed",
+    "agentId": "AGT-11",
+    "categoryId": "CAT-SW",
+    "createdAt": "2026-07-25T08:00:00Z",
+    "resolution": {
+      "id": "RES-002",
+      "description": "Se reinstaló el complemento dañado de la suite ofimática.",
+      "resolvedAt": "2026-07-25T10:00:00Z"
+    }
+  },
+  {
+    "id": "TKT-005",
+    "title": "Caída intermitente de la red del piso 3",
+    "status": "closed",
+    "agentId": "AGT-10",
+    "categoryId": "CAT-NET",
+    "createdAt": "2026-07-20T08:00:00Z",
+    "resolution": {
+      "id": "RES-003",
+      "description": "Se reemplazó el switch defectuoso tras diagnóstico con proveedor.",
+      "resolvedAt": "2026-07-24T08:00:00Z"
+    }
+  },
+  {
+    "id": "TKT-006",
+    "title": "No llegan correos externos",
+    "status": "open",
+    "agentId": "AGT-13",
+    "categoryId": "CAT-EMAIL",
+    "createdAt": "2026-07-28T07:00:00Z"
+  },
+  {
+    "id": "TKT-007",
+    "title": "Impresora de red no responde",
+    "status": "closed",
+    "agentId": "AGT-12",
+    "categoryId": "CAT-HW",
+    "createdAt": "2026-07-26T08:00:00Z",
+    "resolution": {
+      "id": "RES-004",
+      "description": "Se reinició el spooler de impresión y se reasignó la cola.",
+      "resolvedAt": "2026-07-26T14:00:00Z"
+    }
+  },
+  {
+    "id": "TKT-008",
+    "title": "Usuario nuevo sin acceso al ERP",
+    "status": "in_progress",
+    "agentId": "AGT-11",
+    "categoryId": "CAT-SW",
+    "createdAt": "2026-07-27T10:00:00Z"
+  },
+  {
+    "id": "TKT-009",
+    "title": "Cuenta bloqueada por intentos fallidos",
+    "status": "closed",
+    "agentId": "AGT-10",
+    "categoryId": "CAT-ACC",
+    "createdAt": "2026-07-27T08:00:00Z",
+    "resolution": {
+      "id": "RES-005",
+      "description": "Se desbloqueó la cuenta y se forzó cambio de contraseña.",
+      "resolvedAt": "2026-07-27T12:30:00Z"
+    }
+  },
+  {
+    "id": "TKT-010",
+    "title": "Lentitud al conectar por VPN",
+    "status": "open",
+    "agentId": "AGT-13",
+    "categoryId": "CAT-NET",
+    "createdAt": "2026-07-28T08:15:00Z"
   }
 ]
