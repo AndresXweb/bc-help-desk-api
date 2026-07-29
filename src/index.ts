@@ -1,6 +1,6 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { Ticket, ProcessedReport } from './types.js';
+import { Ticket, ProcessedReport, Resolution } from './types.js';
 
 const DATA_DIR = './data';
 const INPUT_FILE = join(DATA_DIR, 'tickets.json');
