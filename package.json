@@ -1,17 +1,24 @@
 {
-  "name": "help-desk-processor",
+  "name": "bc-help-desk-api",
   "version": "1.0.0",
-  "description": "Procesador de datos para sistema de Soporte Técnico",
-  "main": "dist/index.js",
-  "type": "module",
+  "description": "Semana 02 - API CRUD en memoria con Express - Help Desk",
+  "main": "dist/server.js",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "packageManager": "pnpm@10.34.5",
   "scripts": {
-    "dev": "tsx src/index.ts",
+    "dev": "tsx watch src/server.ts",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "express": "5.1.0"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0",
-    "tsx": "^4.7.0",
-    "typescript": "^5.0.0"
+    "@types/express": "5.0.1",
+    "@types/node": "22.15.21",
+    "tsx": "4.19.4",
+    "typescript": "5.8.3"
   }
 }

@@ -1,41 +1,21 @@
-export interface Agent {
-    id: string;
-    name: string;
-    level: number;
-}
+// ============================================
+// TYPES: Dominio Help Desk — recurso principal Ticket
+// ============================================
 
-export interface Category {
-    id: string;
-    name: string;
-}
-
-export interface Resolution {
-    id: string;
-    description: string;
-    resolvedAt: string;
-}
+export type TicketStatus = 'open' | 'in_progress' | 'closed';
+export type TicketPriority = 'low' | 'medium' | 'high';
 
 export interface Ticket {
-    id: string;
-    title: string;
-    status: 'open' | 'in_progress' | 'closed';
-    agentId: string;
-    categoryId: string;
-    createdAt: string;
-    resolution?: Resolution;
+  id: number;
+  title: string;
+  description: string;
+  status: TicketStatus;
+  priority: TicketPriority;
+  agentId?: string;
 }
 
-export interface ResolutionTimeSummary {
-    averageHours: number | null;
-    fastest: { ticketId: string; hours: number } | null;
-    slowest: { ticketId: string; hours: number } | null;
-}
+// DTO usado para crear un nuevo ticket (sin id, se genera automáticamente)
+export type CreateTicketDto = Omit<Ticket, 'id'>;
 
-export interface ProcessedReport {
-    totalTickets: number;
-    closedTickets: number;
-    openTickets: number;
-    categoryFilter: string | null;
-    resolutionTime: ResolutionTimeSummary;
-    resolutions: Resolution[];
-}
+// DTO para actualización (todos los campos editables)
+export type UpdateTicketDto = Partial<CreateTicketDto>;
