@@ -1,12 +1,25 @@
-# Evidencia de pruebas — Semana 02
+# Evidencia de pruebas — Semana 03
 
-Pruebas de los 5 endpoints CRUD de `/api/v1/tickets`, ejecutadas con el servidor corriendo localmente (`pnpm dev`).
+Este directorio debe contener las capturas pedidas en los entregables de
+`3-proyecto/README.md`. Las de la semana 02 se retiraron porque
+corresponden a una arquitectura distinta (sin capas, sin paginación, sin
+`data` wrapper) — hay que generar capturas nuevas para semana 03.
 
-| Captura | Endpoint | Resultado |
+## Checklist de capturas a agregar (Thunder Client / VS Code)
+
+| Archivo sugerido | Endpoint | Qué debe verse |
 |---|---|---|
-| `01-get-tickets.png` | `GET /api/v1/tickets` | 200 — lista los 2 tickets de ejemplo |
-| `02-post-ticket.png` | `POST /api/v1/tickets` | 201 — crea el ticket con `id: 3` |
-| `03-put-ticket.png` | `PUT /api/v1/tickets/3` | 200 — actualiza `status` a `in_progress`, conserva el resto de campos |
-| `04-delete-ticket.png` | `DELETE /api/v1/tickets/3` | 204 — sin body en la respuesta |
+| `01-get-tickets.png` | `GET /api/v1/tickets?page=1&limit=2` | 200 — `{ data: [...], total, page, limit }` |
+| `02-get-ticket-by-id.png` | `GET /api/v1/tickets/1` | 200 — `{ data: { ... } }` |
+| `03-post-ticket.png` | `POST /api/v1/tickets` | 201 — ticket creado con `id` nuevo |
+| `04-put-ticket.png` | `PUT /api/v1/tickets/:id` | 200 — campos actualizados |
+| `05-delete-ticket.png` | `DELETE /api/v1/tickets/:id` | 204 — sin body |
+| `06-get-404.png` | `GET /api/v1/tickets/999` | 404 — `{ error: "Not Found", message: "..." }` |
+| `07-pnpm-build.png` | terminal | `pnpm build` sin errores de TypeScript |
 
-Las pruebas de `POST`, `PUT` y `DELETE` se hicieron con Thunder Client (VS Code). En la terminal de cada captura se ve además el log del middleware personalizado (método, ruta, status y duración).
+## Cómo generarlas
+
+1. `pnpm dev` para levantar el servidor en `localhost:3000`.
+2. En Thunder Client, ejecuta cada request de la tabla y captura la respuesta (status + body).
+3. En terminal, corre `pnpm build` y captura la salida limpia (sin errores).
+4. Guarda las imágenes aquí con los nombres sugeridos (o los que prefieras, mientras sean descriptivos).

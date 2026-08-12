@@ -1,44 +1,34 @@
+// ============================================
+// APP — Configuración Express
+// ============================================
 import express from 'express';
-import type { Application, Request, Response, NextFunction } from 'express';
-import { ticketsRouter } from './routes/tickets.routes.js';
-import { HttpError } from './http-error.js';
+import { ticketsRouter } from './routes/tickets.routes';
+import { ErrorResponse } from './types';
+import { AppError } from './errors/app-error';
 
-export function createApp(): Application {
-  const app = express();
+const app = express();
 
-  // 1. express.json() — parseo de body (requerido para POST/PUT)
-  app.use(express.json());
+app.use(express.json());
 
-  // 2. Logger personalizado — método, ruta, status y duración
-  app.use((req: Request, res: Response, next: NextFunction) => {
-    const start = Date.now();
-    res.on('finish', () => {
-      const duration = Date.now() - start;
-      console.log(`${req.method} ${req.originalUrl} ${res.statusCode} - ${duration}ms`);
-    });
-    next();
-  });
+app.get('/health', (_req, res) => {
+  res.json({ status: 'ok', week: '03', project: 'api-arquitectura', domain: 'help-desk' });
+});
 
-  // 3. Health check
-  app.get('/health', (_req, res) => {
-    res.status(200).json({ status: 'ok' });
-  });
+app.use('/api/v1/tickets', ticketsRouter);
 
-  // 4. Rutas del recurso principal
-  app.use('/api/v1/tickets', ticketsRouter);
+// Handler para rutas no encontradas
+app.use((_req: express.Request, res: express.Response) => {
+  const response: ErrorResponse = { error: 'Not Found', message: 'Route not found' };
+  res.status(404).json(response);
+});
 
-  // 5. Handler para rutas no encontradas (404)
-  app.use((_req: Request, res: Response) => {
-    res.status(404).json({ error: 'Route not found' });
-  });
+// Error handler global — SIEMPRE el último app.use(), 4 parámetros
+app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  const statusCode = err instanceof AppError ? err.statusCode : 500;
+  const errorLabel = statusCode === 400 ? 'Bad Request' : 'Internal Server Error';
+  console.error(`[error] ${statusCode} - ${err.message}`);
+  const response: ErrorResponse = { error: errorLabel, message: err.message };
+  res.status(statusCode).json(response);
+});
 
-  // 6. Error handler global — SIEMPRE el último app.use(), 4 parámetros
-  app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
-    const statusCode = err instanceof HttpError ? err.statusCode : 500;
-    const message = statusCode === 500 ? 'Internal server error' : err.message;
-    console.error(`[error] ${statusCode} - ${err.message}`);
-    res.status(statusCode).json({ error: message });
-  });
-
-  return app;
-}
+export default app;

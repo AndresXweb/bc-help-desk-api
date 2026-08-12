@@ -1,5 +1,5 @@
 // ============================================
-// TYPES: Dominio Help Desk — recurso principal Ticket
+// TYPES — Dominio Help Desk (recurso: Ticket)
 // ============================================
 
 export type TicketStatus = 'open' | 'in_progress' | 'closed';
@@ -11,11 +11,34 @@ export interface Ticket {
   description: string;
   status: TicketStatus;
   priority: TicketPriority;
-  agentId?: string;
+  agentId?: string; // agente asignado, opcional
+  createdAt: string;
 }
 
-// DTO usado para crear un nuevo ticket (sin id, se genera automáticamente)
-export type CreateTicketDto = Omit<Ticket, 'id'>;
+// DTO para crear — sin campos auto-generados
+export type CreateTicketDto = Omit<Ticket, 'id' | 'createdAt'>;
 
-// DTO para actualización (todos los campos editables)
+// DTO para actualizar — todos los campos opcionales
 export type UpdateTicketDto = Partial<CreateTicketDto>;
+
+// Contratos de respuesta (no cambiar nombres — son genéricos)
+export interface SingleResponse<T> {
+  data: T;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface ErrorResponse {
+  error: string;
+  message: string;
+}
+
+export interface PaginationParams {
+  page: number;
+  limit: number;
+}

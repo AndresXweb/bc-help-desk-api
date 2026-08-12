@@ -1,10 +1,14 @@
-import { createApp } from './app.js';
+// ============================================
+// SERVER — Entry point
+// ============================================
+import app from './app';
 
-const PORT = process.env.PORT ?? '3000';
-const app = createApp();
+const PORT = parseInt(process.env['PORT'] ?? '3000', 10);
 
-const server = app.listen(Number(PORT), () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+const server = app.listen(PORT, () => {
+  console.log(`[server] Running on http://localhost:${PORT}`);
+  console.log(`[server] Health: http://localhost:${PORT}/health`);
+  console.log(`[server] API v1: http://localhost:${PORT}/api/v1/tickets`);
 });
 
 function shutdown(signal: string): void {
