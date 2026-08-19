@@ -4,7 +4,8 @@
 // Único punto de acceso al store en memoria. Todos los métodos son
 // async y retornan copias defensivas (nunca la referencia interna).
 
-import { Ticket, CreateTicketDto, UpdateTicketDto } from '../types';
+import { Ticket } from '../types';
+import { CreateTicketDto, UpdateTicketDto } from '../schemas/ticket.schema';
 
 const store: Ticket[] = [
   {
@@ -14,6 +15,7 @@ const store: Ticket[] = [
     status: 'open',
     priority: 'high',
     agentId: 'AGT-10',
+    estimatedHours: 2,
     createdAt: '2026-07-20T09:00:00.000Z',
   },
   {
@@ -23,6 +25,7 @@ const store: Ticket[] = [
     status: 'in_progress',
     priority: 'medium',
     agentId: 'AGT-12',
+    estimatedHours: 1.5,
     createdAt: '2026-07-21T11:30:00.000Z',
   },
   {
@@ -31,6 +34,7 @@ const store: Ticket[] = [
     description: 'El usuario no recibe correos nuevos en la app móvil de Outlook.',
     status: 'open',
     priority: 'low',
+    estimatedHours: 1,
     createdAt: '2026-07-22T14:15:00.000Z',
   },
   {
@@ -40,6 +44,7 @@ const store: Ticket[] = [
     status: 'closed',
     priority: 'medium',
     agentId: 'AGT-08',
+    estimatedHours: 3,
     createdAt: '2026-07-18T08:45:00.000Z',
   },
   {
@@ -48,6 +53,7 @@ const store: Ticket[] = [
     description: 'El usuario olvidó su contraseña de dominio y no puede iniciar sesión.',
     status: 'open',
     priority: 'low',
+    estimatedHours: 0.5,
     createdAt: '2026-07-23T16:00:00.000Z',
   },
 ];

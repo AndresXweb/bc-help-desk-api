@@ -1,6 +1,6 @@
-# bc-help-desk-api — Semana 03
+# bc-help-desk-api — Semana 04
 
-API REST con Express 5 + TypeScript para gestión de tickets de soporte técnico, aplicando **arquitectura en 4 capas** (`routes → controllers → services → repositories`) con contratos de respuesta tipados.
+API REST con Express 5 + TypeScript para gestión de tickets de soporte técnico, con **arquitectura en 4 capas**, **validación con Zod**, **errores estructurados con `AppError`** y **logging profesional con Winston + Morgan**.
 
 ## Dominio asignado
 
@@ -13,102 +13,112 @@ interface Ticket {
   description: string;
   status: 'open' | 'in_progress' | 'closed';
   priority: 'low' | 'medium' | 'high';
-  agentId?: string;   // agente asignado, opcional
+  agentId?: string;        // agente asignado, opcional
+  estimatedHours: number;  // horas estimadas para resolver el ticket
   createdAt: string;
 }
 ```
+
+## Validación (Zod) — `src/schemas/ticket.schema.ts`
+
+| Campo | Validación |
+|---|---|
+| `title` | string, mínimo 3 caracteres, obligatorio |
+| `description` | string, no vacío, obligatorio |
+| `status` | enum `open \| in_progress \| closed`, obligatorio |
+| `priority` | enum `low \| medium \| high`, obligatorio |
+| `agentId` | string, opcional |
+| `estimatedHours` | número positivo, opcional (default `1`) |
+
+`updateTicketSchema` reutiliza `createTicketSchema.partial()` — todos los campos opcionales para actualizaciones parciales. Los tipos `CreateTicketDto`/`UpdateTicketDto` se infieren con `z.infer<>`, así el schema es la única fuente de verdad.
+
+El parámetro `:id` de las rutas se valida por separado con `z.coerce.number().int().positive()`.
 
 ## Arquitectura
 
 ```
 src/
-├── app.ts                          # configuración Express (health, router, error handler)
-├── server.ts                       # entry point + graceful shutdown
-├── types.ts                        # Ticket, DTOs y contratos de respuesta
+├── app.ts                     # Express + orden de middlewares
+├── server.ts                  # entry point + graceful shutdown + logger.info
+├── types.ts                   # Ticket + contratos de respuesta
+├── config/
+│   └── logger.ts              # Winston + stream de Morgan
 ├── errors/
-│   └── app-error.ts                # error de dominio con statusCode (sin dependencia de Express)
+│   └── app-error.ts           # AppError: statusCode, isOperational
+├── middlewares/
+│   ├── notFound.ts            # 404 → AppError, antes del errorHandler
+│   └── errorHandler.ts        # 4 parámetros: ZodError / AppError / genérico
+├── schemas/
+│   └── ticket.schema.ts       # createTicketSchema, updateTicketSchema
 ├── routes/
-│   └── tickets.routes.ts           # solo mapea URL + método → controller
+│   └── tickets.routes.ts
 ├── controllers/
-│   └── tickets.controller.ts       # thin controllers: extraer → llamar service → responder
+│   └── tickets.controller.ts  # thin: valida con Zod → llama service → responde
 ├── services/
-│   └── tickets.service.ts          # paginación + validaciones de dominio, sin imports de Express
+│   └── tickets.service.ts     # paginación, lanza AppError(404) si no existe
 └── repositories/
-    └── tickets.repository.ts       # único punto de acceso al store, copias defensivas
+    └── tickets.repository.ts  # único acceso al store, copias defensivas
 ```
 
-Regla de dependencia: `routes → controllers → services → repositories`. Ninguna capa salta a otra que no sea la inmediatamente inferior.
+## Manejo de errores
+
+`errorHandler` (4 parámetros, único middleware al final de `app.ts`) distingue:
+- **`ZodError`** → 400 con `issues[]` (defensivo, por si se usa `.parse()` en vez de `.safeParse()`)
+- **`AppError`** → su propio `statusCode`, se registra con `logger.warn`
+- **Error genérico** → 500, stack visible solo si `NODE_ENV !== 'production'`, se registra con `logger.error`
+
+## Logging
+
+- **Winston** (`src/config/logger.ts`): nivel `http` en desarrollo / `warn` en producción; formato coloreado en dev, JSON en producción; archivo `logs/error.log` solo en producción.
+- **Morgan** integrado vía stream a `logger.http()` — cada petición queda registrada.
+- `console.log` reemplazado por `logger.*` en todo el proyecto.
 
 ## Endpoints
 
-| Método | Ruta                     | Descripción                            | Status       |
-|--------|--------------------------|-----------------------------------------|--------------|
-| GET    | `/api/v1/tickets`        | Listar con paginación `?page&limit`     | 200          |
-| GET    | `/api/v1/tickets/:id`    | Obtener un ticket por ID                | 200 / 404    |
-| POST   | `/api/v1/tickets`        | Crear un nuevo ticket                   | 201 / 400    |
-| PUT    | `/api/v1/tickets/:id`    | Actualizar un ticket existente          | 200 / 400 / 404 |
-| DELETE | `/api/v1/tickets/:id`    | Eliminar un ticket                      | 204 / 404    |
-| GET    | `/health`                | Health check                            | 200          |
-
-## Contratos de respuesta
-
-```json
-// GET /api/v1/tickets?page=1&limit=2 → 200
-{ "data": [ { "id": 1, "...": "..." } ], "total": 5, "page": 1, "limit": 2 }
-
-// GET /api/v1/tickets/1 → 200
-{ "data": { "id": 1, "title": "Fallo en conexión VPN", "...": "..." } }
-
-// POST /api/v1/tickets → 201
-{ "data": { "id": 6, "...": "..." } }
-
-// GET /api/v1/tickets/999 → 404
-{ "error": "Not Found", "message": "Ticket 999 not found" }
-
-// POST /api/v1/tickets (campos faltantes) → 400
-{ "error": "Bad Request", "message": "Faltan campos requeridos: description, status, priority" }
-```
-
-## Validaciones de dominio (capa service)
-
-- `POST` exige `title`, `description`, `status` y `priority`. Si falta alguno → `400`.
-- `status` debe ser uno de `open | in_progress | closed`; `priority` uno de `low | medium | high` → si no, `400`.
-- `PUT` sobre un ticket inexistente → `404` (no valida el body si el recurso no existe).
-- `agentId` es opcional porque un ticket puede crearse sin agente asignado todavía.
+| Método | Ruta | Descripción | Status |
+|---|---|---|---|
+| GET | `/api/v1/tickets` | Listar con paginación `?page&limit` | 200 |
+| GET | `/api/v1/tickets/:id` | Obtener por ID | 200 / 400 / 404 |
+| POST | `/api/v1/tickets` | Crear (valida con Zod) | 201 / 400 |
+| PUT | `/api/v1/tickets/:id` | Actualizar parcial (valida con Zod) | 200 / 400 / 404 |
+| DELETE | `/api/v1/tickets/:id` | Eliminar | 204 / 400 / 404 |
+| GET | `/health` | Health check | 200 |
 
 ## Cómo correr
 
 ```bash
 pnpm install
-pnpm dev              # levanta con recarga automática en localhost:3000
+pnpm dev              # localhost:3000, con recarga automática
 pnpm build             # compila TypeScript en modo estricto
 pnpm start              # corre la versión compilada
 ```
 
-El store vive en memoria — arranca con 5 tickets de ejemplo y se reinicia cada vez que se reinicia el servidor (a partir de la semana 05 se conecta a base de datos).
-
 ## Pruebas con curl
 
 ```bash
-curl http://localhost:3000/api/v1/tickets?page=1&limit=2
+curl "http://localhost:3000/api/v1/tickets?page=1&limit=2"
 
 curl -X POST http://localhost:3000/api/v1/tickets \
   -H "Content-Type: application/json" \
-  -d '{"title":"No enciende el monitor","description":"El monitor de sala de juntas no enciende","status":"open","priority":"medium","agentId":"AGT-15"}'
+  -d '{"title":"No enciende el monitor","description":"Monitor de sala de juntas","status":"open","priority":"medium","agentId":"AGT-15"}'
 
-curl http://localhost:3000/api/v1/tickets/1
+# Body inválido → 400 con issues[]
+curl -X POST http://localhost:3000/api/v1/tickets \
+  -H "Content-Type: application/json" -d '{"title":"a"}'
 
-curl -X PUT http://localhost:3000/api/v1/tickets/6 \
-  -H "Content-Type: application/json" \
-  -d '{"status":"in_progress"}'
+# id no numérico → 400
+curl http://localhost:3000/api/v1/tickets/abc
 
-curl -X DELETE http://localhost:3000/api/v1/tickets/6
-# Esperado: 204 sin body
+# id inexistente → 404 (AppError)
+curl http://localhost:3000/api/v1/tickets/999
+
+# ruta inexistente → 404 JSON
+curl http://localhost:3000/ruta-inexistente
 ```
 
 ## Decisiones de diseño
 
-- **`AppError`** centraliza los errores con `statusCode` (400 de validación, 500 inesperados) sin que el service dependa de Express, cumpliendo la regla de la capa.
-- Los **404** (recurso no encontrado) se resuelven directamente en el controller comparando el resultado del service contra `undefined`/`false`, en vez de lanzar una excepción — así el flujo "no encontrado" queda explícito en la capa HTTP, tal como pide la arquitectura de la semana.
-- El **repository** siempre retorna copias (`{ ...item }` / `[...store]`) para que nadie fuera de esa capa pueda mutar el store por referencia.
-- Se reutilizó el mismo dominio Help Desk de las semanas 01–02 para mantener coherencia en el proyecto trimestral, ahora reestructurado en capas.
+- **`estimatedHours`** se agregó como campo numérico del dominio (horas estimadas para resolver el ticket) para poder aplicar `.positive()` de forma coherente — Help Desk no tenía un campo numérico natural como "precio" en otros dominios.
+- Los DTOs (`CreateTicketDto`/`UpdateTicketDto`) ya no se definen a mano en `types.ts`: se infieren con `z.infer<>` desde el schema de Zod, para no duplicar la fuente de verdad.
+- El **service** ahora lanza `AppError(404, ...)` en vez de retornar `undefined` (a diferencia de la semana 03) — así el controller queda más simple y el 404 se resuelve de forma centralizada en el `errorHandler`.
+- `notFound` se registra como middleware de 3 parámetros (no error handler) que construye un `AppError(404, ...)` y lo pasa con `next()`, reutilizando el mismo `errorHandler` para todos los 404 — de ruta o de recurso.

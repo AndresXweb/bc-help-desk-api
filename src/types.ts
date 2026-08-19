@@ -12,14 +12,13 @@ export interface Ticket {
   status: TicketStatus;
   priority: TicketPriority;
   agentId?: string; // agente asignado, opcional
+  estimatedHours: number; // horas estimadas para resolver el ticket
   createdAt: string;
 }
 
-// DTO para crear — sin campos auto-generados
-export type CreateTicketDto = Omit<Ticket, 'id' | 'createdAt'>;
-
-// DTO para actualizar — todos los campos opcionales
-export type UpdateTicketDto = Partial<CreateTicketDto>;
+// Nota: CreateTicketDto y UpdateTicketDto ya NO se definen aquí —
+// se infieren desde los schemas de Zod (src/schemas/ticket.schema.ts)
+// con z.infer<>, para que el schema sea la única fuente de verdad.
 
 // Contratos de respuesta (no cambiar nombres — son genéricos)
 export interface SingleResponse<T> {
@@ -36,6 +35,13 @@ export interface PaginatedResponse<T> {
 export interface ErrorResponse {
   error: string;
   message: string;
+  stack?: string;
+}
+
+export interface ValidationErrorResponse {
+  error: string;
+  message: string;
+  issues: Array<{ field: string; message: string }>;
 }
 
 export interface PaginationParams {
