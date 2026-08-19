@@ -2,19 +2,20 @@
 // SERVER — Entry point
 // ============================================
 import app from './app';
+import { logger } from './config/logger';
 
 const PORT = parseInt(process.env['PORT'] ?? '3000', 10);
 
 const server = app.listen(PORT, () => {
-  console.log(`[server] Running on http://localhost:${PORT}`);
-  console.log(`[server] Health: http://localhost:${PORT}/health`);
-  console.log(`[server] API v1: http://localhost:${PORT}/api/v1/tickets`);
+  logger.info(`Server running on http://localhost:${PORT}`);
+  logger.info(`Health: http://localhost:${PORT}/health`);
+  logger.info(`API v1: http://localhost:${PORT}/api/v1/tickets`);
 });
 
 function shutdown(signal: string): void {
-  console.log(`\n${signal} recibido. Cerrando servidor...`);
+  logger.info(`${signal} recibido. Cerrando servidor...`);
   server.close(() => {
-    console.log('Servidor cerrado correctamente.');
+    logger.info('Servidor cerrado correctamente.');
     process.exit(0);
   });
 }

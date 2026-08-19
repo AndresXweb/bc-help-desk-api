@@ -1,47 +1,14 @@
 // ============================================
 // SERVICE — Lógica de negocio
 // ============================================
-// Cero imports de Express. Contiene paginación y validaciones de
-// dominio. Retorna `undefined` cuando no encuentra; el controller
-// decide cómo traducir eso a una respuesta HTTP.
+// Cero imports de Express. La validación de forma/tipo de los datos
+// ya la hizo Zod en el controller; aquí solo vive la lógica de dominio
+// (paginación, existencia del recurso) — lanza AppError cuando corresponde.
 
-import {
-  CreateTicketDto,
-  UpdateTicketDto,
-  Ticket,
-  TicketStatus,
-  TicketPriority,
-  PaginatedResponse,
-  PaginationParams,
-} from '../types';
+import { Ticket, PaginatedResponse, PaginationParams } from '../types';
+import { CreateTicketDto, UpdateTicketDto } from '../schemas/ticket.schema';
 import * as repo from '../repositories/tickets.repository';
 import { AppError } from '../errors/app-error';
-
-const VALID_STATUSES: TicketStatus[] = ['open', 'in_progress', 'closed'];
-const VALID_PRIORITIES: TicketPriority[] = ['low', 'medium', 'high'];
-const REQUIRED_FIELDS: Array<keyof CreateTicketDto> = ['title', 'description', 'status', 'priority'];
-
-function validateCreateDto(dto: Partial<CreateTicketDto>): void {
-  const missing = REQUIRED_FIELDS.filter((field) => dto[field] === undefined);
-  if (missing.length > 0) {
-    throw new AppError(400, `Faltan campos requeridos: ${missing.join(', ')}`);
-  }
-  if (!VALID_STATUSES.includes(dto.status as TicketStatus)) {
-    throw new AppError(400, `status inválido: "${dto.status}". Valores permitidos: ${VALID_STATUSES.join(', ')}`);
-  }
-  if (!VALID_PRIORITIES.includes(dto.priority as TicketPriority)) {
-    throw new AppError(400, `priority inválido: "${dto.priority}". Valores permitidos: ${VALID_PRIORITIES.join(', ')}`);
-  }
-}
-
-function validateUpdateDto(dto: UpdateTicketDto): void {
-  if (dto.status !== undefined && !VALID_STATUSES.includes(dto.status)) {
-    throw new AppError(400, `status inválido: "${dto.status}". Valores permitidos: ${VALID_STATUSES.join(', ')}`);
-  }
-  if (dto.priority !== undefined && !VALID_PRIORITIES.includes(dto.priority)) {
-    throw new AppError(400, `priority inválido: "${dto.priority}". Valores permitidos: ${VALID_PRIORITIES.join(', ')}`);
-  }
-}
 
 export async function findAll(params: PaginationParams): Promise<PaginatedResponse<Ticket>> {
   const { page, limit } = params;
@@ -51,24 +18,25 @@ export async function findAll(params: PaginationParams): Promise<PaginatedRespon
   return { data, total: all.length, page, limit };
 }
 
-export async function findById(id: number): Promise<Ticket | undefined> {
-  return repo.findById(id);
+export async function findById(id: number): Promise<Ticket> {
+  const ticket = await repo.findById(id);
+  if (!ticket) throw new AppError(404, `Ticket ${id} not found`);
+  return ticket;
 }
 
 export async function create(dto: CreateTicketDto): Promise<Ticket> {
-  validateCreateDto(dto);
   return repo.create(dto);
 }
 
-export async function update(id: number, dto: UpdateTicketDto): Promise<Ticket | undefined> {
+export async function update(id: number, dto: UpdateTicketDto): Promise<Ticket> {
   const exists = await repo.findById(id);
-  if (!exists) return undefined;
-  validateUpdateDto(dto);
-  return repo.update(id, dto);
+  if (!exists) throw new AppError(404, `Ticket ${id} not found`);
+  const updated = await repo.update(id, dto);
+  return updated!;
 }
 
-export async function remove(id: number): Promise<boolean> {
+export async function remove(id: number): Promise<void> {
   const exists = await repo.findById(id);
-  if (!exists) return false;
-  return repo.remove(id);
+  if (!exists) throw new AppError(404, `Ticket ${id} not found`);
+  await repo.remove(id);
 }
