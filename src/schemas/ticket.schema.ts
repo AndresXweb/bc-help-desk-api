@@ -19,13 +19,11 @@ export const createTicketSchema = z.object({
     error: 'priority es obligatorio y debe ser low, medium o high',
   }),
   agentId: z.string().trim().optional(),
-  // Horas estimadas para resolver el ticket — opcional, por defecto 1
   estimatedHours: z.number().positive('estimatedHours debe ser mayor a 0').default(1),
+  categoryId: z.string().uuid('categoryId debe ser un UUID válido').optional(),
 });
 
-// Reutiliza el schema de creación con .partial() — todos los campos opcionales
 export const updateTicketSchema = createTicketSchema.partial();
 
-// Tipos inferidos desde los schemas (single source of truth)
 export type CreateTicketDto = z.infer<typeof createTicketSchema>;
 export type UpdateTicketDto = z.infer<typeof updateTicketSchema>;

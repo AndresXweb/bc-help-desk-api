@@ -1,124 +1,184 @@
-# bc-help-desk-api — Semana 04
+# bc-help-desk-api — Semana 05
 
-API REST con Express 5 + TypeScript para gestión de tickets de soporte técnico, con **arquitectura en 4 capas**, **validación con Zod**, **errores estructurados con `AppError`** y **logging profesional con Winston + Morgan**.
+API REST con Express 5 + TypeScript + **PostgreSQL + Prisma ORM** para gestión de tickets de soporte técnico.
 
-## Dominio asignado
+Arquitectura en 4 capas, validación con Zod, errores estructurados con AppError y logging con Winston + Morgan.
+
+## Dominio
 
 **Soporte técnico / Help Desk** — recurso principal `Ticket`.
 
-```ts
-interface Ticket {
-  id: number;
-  title: string;
-  description: string;
-  status: 'open' | 'in_progress' | 'closed';
-  priority: 'low' | 'medium' | 'high';
-  agentId?: string;        // agente asignado, opcional
-  estimatedHours: number;  // horas estimadas para resolver el ticket
-  createdAt: string;
+### Diagrama de entidades
+
+```
+Category (1) ──────── (N) Ticket
+   │                      │
+   ├── id (UUID PK)       ├── id (UUID PK)
+   ├── name (unique)      ├── title
+   ├── description?       ├── description
+   ├── createdAt          ├── status (open|in_progress|closed)
+   └── updatedAt          ├── priority (low|medium|high)
+                          ├── estimatedHours
+                          ├── agentId?
+                          ├── categoryId? (FK → Category)
+                          ├── createdAt
+                          └── updatedAt
+```
+
+Relación **1:N**: una Category tiene muchos Tickets. La FK `categoryId` es opcional (`onDelete: SetNull`).
+
+## Requisitos previos
+
+- Node.js ≥ 22
+- Docker (para PostgreSQL)
+- pnpm
+
+## Cómo correr
+
+```bash
+# 1. Levantar PostgreSQL
+docker compose up -d
+
+# 2. Instalar dependencias
+pnpm install
+
+# 3. Variables de entorno
+cp .env.example .env
+
+# 4. Migraciones
+pnpm dlx prisma migrate dev --name init
+
+# 5. Seed (datos demo)
+pnpm dlx prisma db seed
+
+# 6. Servidor en desarrollo
+pnpm dev
+```
+
+## Endpoints
+
+| Método | Ruta | Descripción | Status |
+|--------|------|-------------|--------|
+| GET | `/api/v1/tickets` | Listado paginado (`?page=1&limit=10`) | 200 |
+| GET | `/api/v1/tickets/:id` | Detalle con relación `category` | 200 / 404 |
+| POST | `/api/v1/tickets` | Crear (valida con Zod) | 201 / 400 / 409 |
+| PUT | `/api/v1/tickets/:id` | Actualizar parcial | 200 / 400 / 404 |
+| DELETE | `/api/v1/tickets/:id` | Eliminar | 204 / 404 |
+| GET | `/health` | Health check | 200 |
+
+### Ejemplo de respuesta paginada
+
+```json
+{
+  "data": [
+    {
+      "id": "3f1a9c2e-5b7d-4e81-9a6f-2c8d0b4e7a15",
+      "title": "Fallo en conexión VPN",
+      "description": "...",
+      "status": "open",
+      "priority": "high",
+      "estimatedHours": 2,
+      "agentId": "AGT-10",
+      "categoryId": "...",
+      "category": {
+        "id": "...",
+        "name": "Red",
+        "description": "Problemas de conectividad..."
+      },
+      "createdAt": "2026-07-20T09:00:00.000Z",
+      "updatedAt": "2026-07-20T09:00:00.000Z"
+    }
+  ],
+  "total": 6,
+  "page": 1,
+  "limit": 10
 }
 ```
 
-## Validación (Zod) — `src/schemas/ticket.schema.ts`
+### Ejemplos curl
 
-| Campo | Validación |
-|---|---|
-| `title` | string, mínimo 3 caracteres, obligatorio |
-| `description` | string, no vacío, obligatorio |
-| `status` | enum `open \| in_progress \| closed`, obligatorio |
-| `priority` | enum `low \| medium \| high`, obligatorio |
-| `agentId` | string, opcional |
-| `estimatedHours` | número positivo, opcional (default `1`) |
+```bash
+# Listar
+curl "http://localhost:3000/api/v1/tickets?page=1&limit=2"
 
-`updateTicketSchema` reutiliza `createTicketSchema.partial()` — todos los campos opcionales para actualizaciones parciales. Los tipos `CreateTicketDto`/`UpdateTicketDto` se infieren con `z.infer<>`, así el schema es la única fuente de verdad.
+# Crear
+curl -X POST http://localhost:3000/api/v1/tickets \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "No enciende el monitor",
+    "description": "Monitor de sala de juntas",
+    "status": "open",
+    "priority": "medium",
+    "agentId": "AGT-15",
+    "estimatedHours": 1.5
+  }'
 
-El parámetro `:id` de las rutas se valida por separado con `z.coerce.number().int().positive()`.
+# ID inexistente → 404
+curl http://localhost:3000/api/v1/tickets/00000000-0000-4000-8000-000000000000
+
+# Body inválido → 400
+curl -X POST http://localhost:3000/api/v1/tickets \
+  -H "Content-Type: application/json" \
+  -d '{"title":"a"}'
+```
+
+## Manejo de errores Prisma
+
+| Código Prisma | HTTP | Mensaje |
+|---------------|------|---------|
+| `P2025` | 404 | Ticket no encontrado |
+| `P2002` | 409 | Ya existe un registro con ese valor único |
+| `P2003` | 400 | La categoría indicada no existe |
+
+Todos pasan por el `errorHandler` de la semana 04.
 
 ## Arquitectura
 
 ```
 src/
-├── app.ts                     # Express + orden de middlewares
-├── server.ts                  # entry point + graceful shutdown + logger.info
-├── types.ts                   # Ticket + contratos de respuesta
-├── config/
-│   └── logger.ts              # Winston + stream de Morgan
-├── errors/
-│   └── app-error.ts           # AppError: statusCode, isOperational
+├── lib/prisma.ts              # Singleton PrismaClient
+├── config/logger.ts           # Winston + Morgan
+├── errors/app-error.ts        # AppError
 ├── middlewares/
-│   ├── notFound.ts            # 404 → AppError, antes del errorHandler
-│   └── errorHandler.ts        # 4 parámetros: ZodError / AppError / genérico
-├── schemas/
-│   └── ticket.schema.ts       # createTicketSchema, updateTicketSchema
-├── routes/
-│   └── tickets.routes.ts
-├── controllers/
-│   └── tickets.controller.ts  # thin: valida con Zod → llama service → responde
-├── services/
-│   └── tickets.service.ts     # paginación, lanza AppError(404) si no existe
-└── repositories/
-    └── tickets.repository.ts  # único acceso al store, copias defensivas
-```
+│   ├── errorHandler.ts
+│   └── notFound.ts
+├── schemas/ticket.schema.ts   # Zod
+├── repositories/tickets.repository.ts  # Prisma CRUD + errores
+├── services/tickets.service.ts
+├── controllers/tickets.controller.ts
+├── routes/tickets.routes.ts
+├── app.ts
+└── server.ts
 
-## Manejo de errores
-
-`errorHandler` (4 parámetros, único middleware al final de `app.ts`) distingue:
-- **`ZodError`** → 400 con `issues[]` (defensivo, por si se usa `.parse()` en vez de `.safeParse()`)
-- **`AppError`** → su propio `statusCode`, se registra con `logger.warn`
-- **Error genérico** → 500, stack visible solo si `NODE_ENV !== 'production'`, se registra con `logger.error`
-
-## Logging
-
-- **Winston** (`src/config/logger.ts`): nivel `http` en desarrollo / `warn` en producción; formato coloreado en dev, JSON en producción; archivo `logs/error.log` solo en producción.
-- **Morgan** integrado vía stream a `logger.http()` — cada petición queda registrada.
-- `console.log` reemplazado por `logger.*` en todo el proyecto.
-
-## Endpoints
-
-| Método | Ruta | Descripción | Status |
-|---|---|---|---|
-| GET | `/api/v1/tickets` | Listar con paginación `?page&limit` | 200 |
-| GET | `/api/v1/tickets/:id` | Obtener por ID | 200 / 400 / 404 |
-| POST | `/api/v1/tickets` | Crear (valida con Zod) | 201 / 400 |
-| PUT | `/api/v1/tickets/:id` | Actualizar parcial (valida con Zod) | 200 / 400 / 404 |
-| DELETE | `/api/v1/tickets/:id` | Eliminar | 204 / 400 / 404 |
-| GET | `/health` | Health check | 200 |
-
-## Cómo correr
-
-```bash
-pnpm install
-pnpm dev              # localhost:3000, con recarga automática
-pnpm build             # compila TypeScript en modo estricto
-pnpm start              # corre la versión compilada
-```
-
-## Pruebas con curl
-
-```bash
-curl "http://localhost:3000/api/v1/tickets?page=1&limit=2"
-
-curl -X POST http://localhost:3000/api/v1/tickets \
-  -H "Content-Type: application/json" \
-  -d '{"title":"No enciende el monitor","description":"Monitor de sala de juntas","status":"open","priority":"medium","agentId":"AGT-15"}'
-
-# Body inválido → 400 con issues[]
-curl -X POST http://localhost:3000/api/v1/tickets \
-  -H "Content-Type: application/json" -d '{"title":"a"}'
-
-# id no numérico → 400
-curl http://localhost:3000/api/v1/tickets/abc
-
-# id inexistente → 404 (AppError)
-curl http://localhost:3000/api/v1/tickets/999
-
-# ruta inexistente → 404 JSON
-curl http://localhost:3000/ruta-inexistente
+prisma/
+├── schema.prisma
+├── seed.ts
+└── migrations/                # versionadas en el repo
 ```
 
 ## Decisiones de diseño
 
-- **`estimatedHours`** se agregó como campo numérico del dominio (horas estimadas para resolver el ticket) para poder aplicar `.positive()` de forma coherente — Help Desk no tenía un campo numérico natural como "precio" en otros dominios.
-- Los DTOs (`CreateTicketDto`/`UpdateTicketDto`) ya no se definen a mano en `types.ts`: se infieren con `z.infer<>` desde el schema de Zod, para no duplicar la fuente de verdad.
-- El **service** ahora lanza `AppError(404, ...)` en vez de retornar `undefined` (a diferencia de la semana 03) — así el controller queda más simple y el 404 se resuelve de forma centralizada en el `errorHandler`.
-- `notFound` se registra como middleware de 3 parámetros (no error handler) que construye un `AppError(404, ...)` y lo pasa con `next()`, reutilizando el mismo `errorHandler` para todos los 404 — de ruta o de recurso.
+- **UUID** como PK en todos los modelos (convención del bootcamp).
+- **Category** como recurso secundario con relación 1:N y campo `@unique` (`name`) para demostrar `P2002`.
+- Tipos de dominio derivados de Prisma Client (no se duplican interfaces).
+- Paginación con `skip` / `take` + `count` en paralelo (`Promise.all`).
+- `include: { category: true }` para evitar el problema N+1.
+- Seed idempotente: categorías con `upsert`, tickets solo si la tabla está vacía.
+
+## Logs del seed
+
+```
+🌱 Iniciando seed...
+  ✓ Category: Red
+  ✓ Category: Hardware
+  ✓ Category: Software
+  ✓ Category: Cuentas
+  ✓ Category: Correo
+  ✓ Ticket: Fallo en conexión VPN
+  ✓ Ticket: Impresora de red no responde
+  ✓ Ticket: Correo no sincroniza en el celular
+  ✓ Ticket: Laptop muy lenta al iniciar
+  ✓ Ticket: Solicitud de restablecimiento de contraseña
+  ✓ Ticket: Error al instalar Adobe Acrobat
+✅ Seed completado.
+```

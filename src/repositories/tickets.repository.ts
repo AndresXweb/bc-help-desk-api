@@ -1,89 +1,91 @@
 // ============================================
-// REPOSITORY — Capa de acceso a datos
+// REPOSITORY — Acceso a datos con Prisma
 // ============================================
-// Único punto de acceso al store en memoria. Todos los métodos son
-// async y retornan copias defensivas (nunca la referencia interna).
+// Único punto de acceso a PostgreSQL. Maneja errores P2002 y P2025.
 
-import { Ticket } from '../types';
+import { Prisma } from '@prisma/client';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
+import { prisma } from '../lib/prisma';
+import { AppError } from '../errors/app-error';
 import { CreateTicketDto, UpdateTicketDto } from '../schemas/ticket.schema';
 
-const store: Ticket[] = [
-  {
-    id: 1,
-    title: 'Fallo en conexión VPN',
-    description: 'El usuario no logra conectarse a la VPN corporativa desde casa.',
-    status: 'open',
-    priority: 'high',
-    agentId: 'AGT-10',
-    estimatedHours: 2,
-    createdAt: '2026-07-20T09:00:00.000Z',
-  },
-  {
-    id: 2,
-    title: 'Impresora de red no responde',
-    description: 'La impresora del piso 3 no imprime desde ningún equipo.',
-    status: 'in_progress',
-    priority: 'medium',
-    agentId: 'AGT-12',
-    estimatedHours: 1.5,
-    createdAt: '2026-07-21T11:30:00.000Z',
-  },
-  {
-    id: 3,
-    title: 'Correo no sincroniza en el celular',
-    description: 'El usuario no recibe correos nuevos en la app móvil de Outlook.',
-    status: 'open',
-    priority: 'low',
-    estimatedHours: 1,
-    createdAt: '2026-07-22T14:15:00.000Z',
-  },
-  {
-    id: 4,
-    title: 'Laptop muy lenta al iniciar',
-    description: 'El equipo tarda más de 5 minutos en estar listo para trabajar.',
-    status: 'closed',
-    priority: 'medium',
-    agentId: 'AGT-08',
-    estimatedHours: 3,
-    createdAt: '2026-07-18T08:45:00.000Z',
-  },
-  {
-    id: 5,
-    title: 'Solicitud de restablecimiento de contraseña',
-    description: 'El usuario olvidó su contraseña de dominio y no puede iniciar sesión.',
-    status: 'open',
-    priority: 'low',
-    estimatedHours: 0.5,
-    createdAt: '2026-07-23T16:00:00.000Z',
-  },
-];
-let nextId = 6;
-
-export async function findAll(): Promise<Ticket[]> {
-  return [...store];
+export async function findAll(page: number, limit: number) {
+  const [data, total] = await Promise.all([
+    prisma.ticket.findMany({
+      skip: (page - 1) * limit,
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+      include: { category: true },
+    }),
+    prisma.ticket.count(),
+  ]);
+  return { data, total, page, limit };
 }
 
-export async function findById(id: number): Promise<Ticket | undefined> {
-  const found = store.find((t) => t.id === id);
-  return found ? { ...found } : undefined;
+export async function findById(id: string) {
+  const ticket = await prisma.ticket.findUnique({
+    where: { id },
+    include: { category: true },
+  });
+  if (!ticket) {
+    throw new AppError(404, `Ticket ${id} not found`);
+  }
+  return ticket;
 }
 
-export async function create(dto: CreateTicketDto): Promise<Ticket> {
-  const ticket: Ticket = { id: nextId++, ...dto, createdAt: new Date().toISOString() };
-  store.push(ticket);
-  return { ...ticket };
+export async function create(dto: CreateTicketDto) {
+  try {
+    return await prisma.ticket.create({
+      data: {
+        title: dto.title,
+        description: dto.description,
+        status: dto.status,
+        priority: dto.priority,
+        estimatedHours: dto.estimatedHours ?? 1,
+        agentId: dto.agentId,
+        categoryId: dto.categoryId,
+      },
+      include: { category: true },
+    });
+  } catch (err) {
+    if (err instanceof PrismaClientKnownRequestError && err.code === 'P2002') {
+      throw new AppError(409, 'Ya existe un registro con ese valor único');
+    }
+    if (err instanceof PrismaClientKnownRequestError && err.code === 'P2003') {
+      throw new AppError(400, 'La categoría indicada no existe');
+    }
+    throw err;
+  }
 }
 
-export async function update(id: number, dto: UpdateTicketDto): Promise<Ticket | undefined> {
-  const index = store.findIndex((t) => t.id === id);
-  if (index === -1) return undefined;
-  store[index] = { ...store[index]!, ...dto };
-  return { ...store[index]! };
+export async function update(id: string, dto: UpdateTicketDto) {
+  try {
+    return await prisma.ticket.update({
+      where: { id },
+      data: dto as Prisma.TicketUpdateInput,
+      include: { category: true },
+    });
+  } catch (err) {
+    if (err instanceof PrismaClientKnownRequestError && err.code === 'P2025') {
+      throw new AppError(404, `Ticket ${id} not found`);
+    }
+    if (err instanceof PrismaClientKnownRequestError && err.code === 'P2002') {
+      throw new AppError(409, 'Ya existe un registro con ese valor único');
+    }
+    if (err instanceof PrismaClientKnownRequestError && err.code === 'P2003') {
+      throw new AppError(400, 'La categoría indicada no existe');
+    }
+    throw err;
+  }
 }
 
-export async function remove(id: number): Promise<boolean> {
-  const index = store.findIndex((t) => t.id === id);
-  if (index === -1) return false;
-  store.splice(index, 1);
-  return true;
+export async function remove(id: string) {
+  try {
+    await prisma.ticket.delete({ where: { id } });
+  } catch (err) {
+    if (err instanceof PrismaClientKnownRequestError && err.code === 'P2025') {
+      throw new AppError(404, `Ticket ${id} not found`);
+    }
+    throw err;
+  }
 }

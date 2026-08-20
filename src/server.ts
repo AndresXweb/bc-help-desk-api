@@ -10,6 +10,7 @@ const server = app.listen(PORT, () => {
   logger.info(`Server running on http://localhost:${PORT}`);
   logger.info(`Health: http://localhost:${PORT}/health`);
   logger.info(`API v1: http://localhost:${PORT}/api/v1/tickets`);
+  logger.info(`Prisma + PostgreSQL listo (semana 05)`);
 });
 
 function shutdown(signal: string): void {

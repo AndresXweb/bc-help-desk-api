@@ -1,26 +1,10 @@
 // ============================================
-// TYPES — Dominio Help Desk (recurso: Ticket)
+// TYPES — Contratos de respuesta (Help Desk)
 // ============================================
+// Los tipos de Ticket y Category se derivan de Prisma Client
+// (import { Ticket, Category } from '@prisma/client').
+// No se duplican interfaces de dominio aquí.
 
-export type TicketStatus = 'open' | 'in_progress' | 'closed';
-export type TicketPriority = 'low' | 'medium' | 'high';
-
-export interface Ticket {
-  id: number;
-  title: string;
-  description: string;
-  status: TicketStatus;
-  priority: TicketPriority;
-  agentId?: string; // agente asignado, opcional
-  estimatedHours: number; // horas estimadas para resolver el ticket
-  createdAt: string;
-}
-
-// Nota: CreateTicketDto y UpdateTicketDto ya NO se definen aquí —
-// se infieren desde los schemas de Zod (src/schemas/ticket.schema.ts)
-// con z.infer<>, para que el schema sea la única fuente de verdad.
-
-// Contratos de respuesta (no cambiar nombres — son genéricos)
 export interface SingleResponse<T> {
   data: T;
 }

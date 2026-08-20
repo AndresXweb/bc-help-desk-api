@@ -1,22 +1,16 @@
 // ============================================
 // CONTROLLER — Interfaz HTTP (thin controller)
 // ============================================
-// Extraer → validar con Zod → llamar service → responder.
-// Los 404 ahora los lanza el service como AppError; aquí solo se
-// capturan con next(err) y los resuelve el errorHandler global.
-
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import * as service from '../services/tickets.service';
 import { createTicketSchema, updateTicketSchema } from '../schemas/ticket.schema';
 import { SingleResponse, PaginatedResponse } from '../types';
 
-// Schema para validar el parámetro :id
-const idSchema = z.coerce.number().int().positive({
-  message: 'El id debe ser un número entero positivo',
+const idSchema = z.string().uuid({
+  message: 'El id debe ser un UUID válido',
 });
 
-// Helper para formatear issues de un ZodError — evita duplicación
 function formatIssues(error: z.ZodError): Array<{ field: string; message: string }> {
   return error.issues.map((issue) => ({
     field: issue.path.join('.') || 'id',
