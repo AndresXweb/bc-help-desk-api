@@ -39,6 +39,7 @@ async function main() {
   } else {
     const tickets = [
       {
+        code: 'TKT-1001',
         title: 'Fallo en conexión VPN',
         description: 'El usuario no logra conectarse a la VPN corporativa desde casa.',
         status: 'open',
@@ -48,6 +49,7 @@ async function main() {
         categoryId: categories['Red'],
       },
       {
+        code: 'TKT-1002',
         title: 'Impresora de red no responde',
         description: 'La impresora del piso 3 no imprime desde ningún equipo.',
         status: 'in_progress',
@@ -57,6 +59,7 @@ async function main() {
         categoryId: categories['Hardware'],
       },
       {
+        code: 'TKT-1003',
         title: 'Correo no sincroniza en el celular',
         description: 'El usuario no recibe correos nuevos en la app móvil de Outlook.',
         status: 'open',
@@ -65,6 +68,7 @@ async function main() {
         categoryId: categories['Correo'],
       },
       {
+        code: 'TKT-1004',
         title: 'Laptop muy lenta al iniciar',
         description: 'El equipo tarda más de 5 minutos en estar listo para trabajar.',
         status: 'closed',
@@ -74,6 +78,7 @@ async function main() {
         categoryId: categories['Hardware'],
       },
       {
+        code: 'TKT-1005',
         title: 'Solicitud de restablecimiento de contraseña',
         description: 'El usuario olvidó su contraseña de dominio y no puede iniciar sesión.',
         status: 'open',
@@ -82,6 +87,7 @@ async function main() {
         categoryId: categories['Cuentas'],
       },
       {
+        code: 'TKT-1006',
         title: 'Error al instalar Adobe Acrobat',
         description: 'La instalación falla con código de error 1603.',
         status: 'in_progress',

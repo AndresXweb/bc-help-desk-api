@@ -4,6 +4,9 @@
 import { z } from 'zod';
 
 export const createTicketSchema = z.object({
+  code: z
+    .string({ error: 'code es obligatorio' })
+    .regex(/^[A-Z]{2,4}-\d{4,8}$/, 'code debe tener formato ABC-1234, ej: TKT-1001'),
   title: z
     .string({ error: 'title es obligatorio' })
     .min(3, 'title debe tener al menos 3 caracteres')

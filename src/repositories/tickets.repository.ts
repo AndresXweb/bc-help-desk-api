@@ -37,6 +37,7 @@ export async function create(dto: CreateTicketDto) {
   try {
     return await prisma.ticket.create({
       data: {
+        code: dto.code,
         title: dto.title,
         description: dto.description,
         status: dto.status,
