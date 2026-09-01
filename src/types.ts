@@ -1,9 +1,8 @@
 // ============================================
-// TYPES — Contratos de respuesta (Help Desk)
+// TYPES — Contratos de respuesta
 // ============================================
-// Los tipos de Ticket y Category se derivan de Prisma Client
-// (import { Ticket, Category } from '@prisma/client').
-// No se duplican interfaces de dominio aquí.
+// Los documentos de dominio salen de los models de Mongoose.
+// Aquí solo viven contratos HTTP genéricos.
 
 export interface SingleResponse<T> {
   data: T;
@@ -13,19 +12,7 @@ export interface PaginatedResponse<T> {
   data: T[];
   total: number;
   page: number;
-  limit: number;
-}
-
-export interface ErrorResponse {
-  error: string;
-  message: string;
-  stack?: string;
-}
-
-export interface ValidationErrorResponse {
-  error: string;
-  message: string;
-  issues: Array<{ field: string; message: string }>;
+  totalPages: number;
 }
 
 export interface PaginationParams {

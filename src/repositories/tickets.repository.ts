@@ -1,92 +1,61 @@
 // ============================================
-// REPOSITORY — Acceso a datos con Prisma
+// REPOSITORY — Ticket (Mongoose + populate)
 // ============================================
-// Único punto de acceso a PostgreSQL. Maneja errores P2002 y P2025.
-
-import { Prisma } from '@prisma/client';
-import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
-import { prisma } from '../lib/prisma';
-import { AppError } from '../errors/app-error';
+import { Ticket } from '../models/ticket.model';
 import { CreateTicketDto, UpdateTicketDto } from '../schemas/ticket.schema';
+import { AppError } from '../errors/app-error';
+import { handleMongoReadError, handleMongoWriteError } from './mongo-errors';
+
+const CATEGORY_POPULATE = { path: 'category', select: 'name description createdAt updatedAt' };
 
 export async function findAll(page: number, limit: number) {
+  const skip = (page - 1) * limit;
   const [data, total] = await Promise.all([
-    prisma.ticket.findMany({
-      skip: (page - 1) * limit,
-      take: limit,
-      orderBy: { createdAt: 'desc' },
-      include: { category: true },
-    }),
-    prisma.ticket.count(),
+    Ticket.find()
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate(CATEGORY_POPULATE)
+      .lean(),
+    Ticket.countDocuments(),
   ]);
-  return { data, total, page, limit };
+  const totalPages = Math.ceil(total / limit) || 1;
+  return { data, total, page, totalPages };
 }
 
 export async function findById(id: string) {
-  const ticket = await prisma.ticket.findUnique({
-    where: { id },
-    include: { category: true },
-  });
-  if (!ticket) {
-    throw new AppError(404, `Ticket ${id} not found`);
+  try {
+    return await Ticket.findById(id).populate(CATEGORY_POPULATE).lean();
+  } catch (err) {
+    handleMongoReadError(err);
   }
-  return ticket;
 }
 
 export async function create(dto: CreateTicketDto) {
   try {
-    return await prisma.ticket.create({
-      data: {
-        code: dto.code,
-        title: dto.title,
-        description: dto.description,
-        status: dto.status,
-        priority: dto.priority,
-        estimatedHours: dto.estimatedHours ?? 1,
-        agentId: dto.agentId,
-        categoryId: dto.categoryId,
-      },
-      include: { category: true },
-    });
+    const doc = await Ticket.create(dto);
+    const created = await Ticket.findById(doc._id).populate(CATEGORY_POPULATE).lean();
+    if (!created) throw new AppError(500, 'No se pudo leer el ticket creado');
+    return created;
   } catch (err) {
-    if (err instanceof PrismaClientKnownRequestError && err.code === 'P2002') {
-      throw new AppError(409, 'Ya existe un registro con ese valor único');
-    }
-    if (err instanceof PrismaClientKnownRequestError && err.code === 'P2003') {
-      throw new AppError(400, 'La categoría indicada no existe');
-    }
-    throw err;
+    handleMongoWriteError(err);
   }
 }
 
 export async function update(id: string, dto: UpdateTicketDto) {
   try {
-    return await prisma.ticket.update({
-      where: { id },
-      data: dto as Prisma.TicketUpdateInput,
-      include: { category: true },
-    });
+    return await Ticket.findByIdAndUpdate(id, dto, { new: true, runValidators: true })
+      .populate(CATEGORY_POPULATE)
+      .lean();
   } catch (err) {
-    if (err instanceof PrismaClientKnownRequestError && err.code === 'P2025') {
-      throw new AppError(404, `Ticket ${id} not found`);
-    }
-    if (err instanceof PrismaClientKnownRequestError && err.code === 'P2002') {
-      throw new AppError(409, 'Ya existe un registro con ese valor único');
-    }
-    if (err instanceof PrismaClientKnownRequestError && err.code === 'P2003') {
-      throw new AppError(400, 'La categoría indicada no existe');
-    }
-    throw err;
+    handleMongoWriteError(err);
   }
 }
 
 export async function remove(id: string) {
   try {
-    await prisma.ticket.delete({ where: { id } });
+    return await Ticket.findByIdAndDelete(id).lean();
   } catch (err) {
-    if (err instanceof PrismaClientKnownRequestError && err.code === 'P2025') {
-      throw new AppError(404, `Ticket ${id} not found`);
-    }
-    throw err;
+    handleMongoReadError(err);
   }
 }

@@ -19,12 +19,10 @@ export const logger = createLogger({
   format: isDev ? devFormat : prodFormat,
   transports: [
     new transports.Console(),
-    // Solo en producción: persiste errores en archivo además de consola
     ...(isDev ? [] : [new transports.File({ filename: 'logs/error.log', level: 'error' })]),
   ],
 });
 
-// Stream que conecta Morgan con el nivel 'http' de Winston
 export const morganStream = {
   write: (message: string) => logger.http(message.trim()),
 };

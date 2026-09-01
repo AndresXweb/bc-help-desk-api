@@ -1,12 +1,11 @@
 // ============================================
-// CONTROLLER — Tickets
+// CONTROLLER — Categories
 // ============================================
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import * as service from '../services/tickets.service';
-import { createTicketSchema, updateTicketSchema } from '../schemas/ticket.schema';
-import { objectIdSchema } from '../schemas/category.schema';
-import { SingleResponse, PaginatedResponse } from '../types';
+import * as service from '../services/categories.service';
+import { createCategorySchema, updateCategorySchema, objectIdSchema } from '../schemas/category.schema';
+import { SingleResponse } from '../types';
 
 function formatIssues(error: z.ZodError): Array<{ field: string; message: string }> {
   return error.issues.map((issue) => ({
@@ -15,12 +14,10 @@ function formatIssues(error: z.ZodError): Array<{ field: string; message: string
   }));
 }
 
-export async function getAll(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function getAll(_req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const page = Number(req.query['page']) || 1;
-    const limit = Number(req.query['limit']) || 10;
-    const result = await service.findAll({ page, limit });
-    res.status(200).json(result satisfies PaginatedResponse<(typeof result.data)[number]>);
+    const data = await service.findAll();
+    res.status(200).json({ data });
   } catch (err) {
     next(err);
   }
@@ -37,8 +34,8 @@ export async function getById(req: Request, res: Response, next: NextFunction): 
       });
       return;
     }
-    const ticket = await service.findById(parsed.data);
-    res.status(200).json({ data: ticket } satisfies SingleResponse<typeof ticket>);
+    const category = await service.findById(parsed.data);
+    res.status(200).json({ data: category } satisfies SingleResponse<typeof category>);
   } catch (err) {
     next(err);
   }
@@ -46,7 +43,7 @@ export async function getById(req: Request, res: Response, next: NextFunction): 
 
 export async function create(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const result = createTicketSchema.safeParse(req.body);
+    const result = createCategorySchema.safeParse(req.body);
     if (!result.success) {
       res.status(400).json({
         error: 'Validation Error',
@@ -55,8 +52,8 @@ export async function create(req: Request, res: Response, next: NextFunction): P
       });
       return;
     }
-    const ticket = await service.create(result.data);
-    res.status(201).json({ data: ticket } satisfies SingleResponse<typeof ticket>);
+    const category = await service.create(result.data);
+    res.status(201).json({ data: category } satisfies SingleResponse<typeof category>);
   } catch (err) {
     next(err);
   }
@@ -73,7 +70,7 @@ export async function update(req: Request, res: Response, next: NextFunction): P
       });
       return;
     }
-    const result = updateTicketSchema.safeParse(req.body);
+    const result = updateCategorySchema.safeParse(req.body);
     if (!result.success) {
       res.status(400).json({
         error: 'Validation Error',
@@ -82,8 +79,8 @@ export async function update(req: Request, res: Response, next: NextFunction): P
       });
       return;
     }
-    const ticket = await service.update(parsedId.data, result.data);
-    res.status(200).json({ data: ticket } satisfies SingleResponse<typeof ticket>);
+    const category = await service.update(parsedId.data, result.data);
+    res.status(200).json({ data: category } satisfies SingleResponse<typeof category>);
   } catch (err) {
     next(err);
   }
