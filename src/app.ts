@@ -16,7 +16,6 @@ const app: Express = express();
 // Security layers — order matters
 app.use(helmet());
 app.use(globalLimiter);
-app.options('*', cors(corsOptions)); // preflight
 app.use(cors(corsOptions));
 
 // Body parsing
