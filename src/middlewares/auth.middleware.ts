@@ -1,19 +1,18 @@
 import { Request, Response, NextFunction } from 'express';
-import { verifyAccessToken } from '../utils/jwt';
-import { AppError } from '../errors/AppError';
+import { verifyAccessToken } from '../utils/jwt.js';
+import { AppError } from '../errors/AppError.js';
 
 export function authMiddleware(req: Request, res: Response, next: NextFunction): void {
-  const token = req.cookies?.accessToken as string | undefined;
-
-  if (!token) {
-    return next(new AppError(401, 'No autenticado — token no encontrado'));
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return next(new AppError(401, 'Authorization header missing or malformed'));
   }
 
+  const token = authHeader.split(' ')[1];
   try {
-    const decoded = verifyAccessToken(token);
-    req.user = decoded;
+    req.user = verifyAccessToken(token);
     next();
   } catch {
-    next(new AppError(401, 'Token inválido o expirado'));
+    next(new AppError(401, 'Invalid or expired token'));
   }
 }

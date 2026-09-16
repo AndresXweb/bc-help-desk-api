@@ -1,10 +1,10 @@
-# bc-help-desk-api — Semana 07
+# bc-help-desk-api — Semana 08
 
-API REST con **autenticación JWT completa** (bcrypt + access/refresh tokens en cookies HttpOnly), protegiendo el CRUD del recurso principal del dominio **Help Desk**.
+API REST con **autorización RBAC** (roles `user`/`admin`) y **capas de seguridad completas** (Helmet, CORS con whitelist, rate limiting diferenciado, sanitización anti-NoSQL-injection), protegiendo el CRUD del recurso principal del dominio **Help Desk**.
 
 ## Dominio asignado
 
-**Soporte técnico / Help Desk** — recurso principal `Ticket`, protegido por autenticación. Cada ticket registra qué usuario lo creó (`createdBy`).
+**Soporte técnico / Help Desk** — recurso principal `Ticket`.
 
 ```ts
 interface Ticket {
@@ -15,58 +15,75 @@ interface Ticket {
   priority: 'low' | 'medium' | 'high';
   estimatedHours: number;
   agentId?: string;
-  createdBy: ObjectId;     // referencia al usuario autenticado
+  active: boolean;
+  createdBy: string;       // ID del usuario que lo creó
 }
 ```
 
-## Autenticación
+## Roles y permisos
 
-| Endpoint | Descripción | Protegida |
-|---|---|---|
-| `POST /api/v1/auth/register` | Registro — password hasheada con bcrypt (10 salt rounds) | No |
-| `POST /api/v1/auth/login` | Login — emite `accessToken` (15 min) y `refreshToken` (7 días) en cookies `httpOnly` | No |
-| `GET /api/v1/auth/me` | Perfil del usuario autenticado | Sí |
-| `POST /api/v1/auth/refresh` | Renueva tokens con **rotación** (invalida el refresh anterior) | Requiere cookie `refreshToken` |
-| `POST /api/v1/auth/logout` | Limpia cookies e invalida el refresh token en DB | Sí |
+| Rol | Puede |
+|---|---|
+| `user` | Ver todos los tickets, crear tickets, editar **solo los propios** |
+| `admin` | Todo lo de `user`, además editar cualquier ticket y **eliminar** tickets |
 
-Seguridad aplicada: secretos JWT distintos para access/refresh, hash del refresh token almacenado en DB (nunca el token en claro), mismo mensaje de error para email/contraseña incorrectos (previene user enumeration), cookies `httpOnly` + `sameSite: lax` + `secure` en producción.
+**Decisión de diseño**: ninguna ruta de `Ticket` es pública — es un sistema interno de soporte técnico, no un catálogo público. Todas requieren sesión activa (`authMiddleware`); solo `DELETE` exige además `requireRole('admin')`.
 
-## Recurso — Tickets (todas las rutas requieren estar autenticado)
+## Endpoints
 
-| Método | Ruta | Descripción | Status |
+| Método | Ruta | Acceso | Status |
 |---|---|---|---|
-| GET | `/api/v1/tickets` | Listar todos los tickets | 200 / 401 |
-| GET | `/api/v1/tickets/:id` | Obtener un ticket | 200 / 401 / 404 |
-| POST | `/api/v1/tickets` | Crear ticket (queda asociado al usuario autenticado) | 201 / 400 / 401 / 409 |
-| PATCH | `/api/v1/tickets/:id` | Actualizar parcialmente | 200 / 400 / 401 / 404 |
-| DELETE | `/api/v1/tickets/:id` | Eliminar | 204 / 401 / 404 |
+| POST | `/api/v1/auth/register` | Público | 201 / 400 / 409 |
+| POST | `/api/v1/auth/login` | Público (rate-limited: 5/15min) | 200 / 401 |
+| POST | `/api/v1/auth/refresh` | Requiere cookie refresh | 200 / 401 |
+| POST | `/api/v1/auth/logout` | Autenticado | 200 |
+| GET | `/api/v1/users/dashboard` | Autenticado | 200 |
+| GET | `/api/v1/tickets` | Autenticado | 200 |
+| GET | `/api/v1/tickets/:id` | Autenticado | 200 / 404 |
+| POST | `/api/v1/tickets` | Autenticado | 201 / 400 / 401 / 409 |
+| PATCH | `/api/v1/tickets/:id` | Autenticado + dueño o admin | 200 / 403 / 404 |
+| DELETE | `/api/v1/tickets/:id` | **Solo admin** | 200 / 403 / 404 |
+
+## Capas de seguridad aplicadas
+
+1. **Helmet** — cabeceras HTTP de seguridad (`X-Content-Type-Options`, `X-Frame-Options`, CSP, etc.) en todas las respuestas.
+2. **Rate limiting**:
+   - Global: 100 requests / 15 min en toda la API
+   - `/api/v1/auth`: 5 requests / 15 min (protección contra fuerza bruta en login)
+3. **CORS con whitelist** — solo `http://localhost:5173` y `http://localhost:3001` reciben `Access-Control-Allow-Origin`; cualquier otro origen es rechazado (nunca `*`).
+4. **`express-mongo-sanitize`** — limpia operadores de MongoDB (`$gt`, `$ne`, etc.) del body/query antes de llegar a las rutas, previniendo NoSQL injection.
+5. **Validación Zod con regex anti-XSS** — `title`/`description` rechazan caracteres `<` `>` para evitar que se guarde HTML/scripts.
+6. **RBAC** — `authMiddleware` + `requireRole('admin')` en rutas administrativas.
+7. **Errores sin fuga de información** — el `errorHandler` no expone `stack` en producción (`NODE_ENV=production`).
 
 ## Cómo correr
 
 ```bash
 pnpm install
 cp .env.example .env
-# Genera dos secretos DISTINTOS y pégalos en .env:
-openssl rand -base64 64   # → JWT_ACCESS_SECRET
-openssl rand -base64 64   # → JWT_REFRESH_SECRET
-docker compose up -d       # o tu URI de MongoDB Atlas en .env
+# Genera dos secretos DISTINTOS:
+node -e "console.log(require('crypto').randomBytes(64).toString('base64'))"
+# Pega uno en JWT_ACCESS_SECRET y otro en JWT_REFRESH_SECRET
+# Pon tu MONGODB_URI de Atlas (sin SRV si tu red bloquea DNS SRV)
 pnpm dev
 ```
 
-## Flujo de prueba sugerido (Thunder Client / Postman)
+## Flujo de prueba sugerido
 
-1. `POST /auth/register` → 201
-2. `POST /auth/login` → 200, cookies `accessToken`/`refreshToken` en la respuesta
-3. `GET /api/v1/tickets` sin cookies → **401**
-4. `POST /api/v1/tickets` con cookie → 201
-5. `GET` / `PATCH` / `DELETE` sobre ese ticket → 200/200/204
-6. `POST /auth/refresh` → 200, cookies nuevas (rotación)
-7. `POST /auth/logout` → 200, cookies limpiadas
-8. `POST /auth/refresh` de nuevo (con el token ya invalidado) → **401**
+1. `POST /auth/register` (user1) → 201
+2. `POST /auth/register` (user2, luego cambiar su `role` a `admin` directo en MongoDB Atlas → Browse Collections, para tener un admin de prueba)
+3. `POST /auth/login` con user1 → 200, cookies
+4. `POST /tickets` con user1 → 201 (queda con `createdBy = user1`)
+5. `PATCH` ese ticket con **user1** → 200 (es el dueño)
+6. Login con user2 (admin), `PATCH` el mismo ticket → 200 (es admin)
+7. Registrar un tercer usuario (`user3`), login, intentar `PATCH` el ticket de user1 → **403**
+8. `DELETE` el ticket con user1 (no admin) → **403**
+9. `DELETE` el ticket con user2 (admin) → 200
+10. 6 intentos seguidos de `POST /auth/login` con contraseña incorrecta → el 6to debe dar **429**
+11. Revisar los headers de cualquier respuesta → debe verse `X-Content-Type-Options: nosniff` (Helmet) y `RateLimit-Remaining` (rate limit)
 
 ## Decisiones de diseño
 
-- **`createdBy`** en `Ticket` referencia al usuario autenticado (`req.user.sub`) — sigue el patrón que muestra la especificación (`addedBy`/`registeredBy`) para dejar registro de quién creó cada recurso.
-- **`code` único** en `Ticket` (formato `TKT-1234`) para poder demostrar el manejo de duplicados (`11000` → 409), igual que en semanas anteriores.
-- **Corregí un bug del `errorHandler.ts` del starter**: no manejaba `ZodError`, así que un body inválido en `register`/`login`/`tickets` respondía 500 en vez de 400. Se agregó ese caso explícitamente.
-- **Corregí otro bug del `tsconfig.json` del starter**: con `"declaration": true`, TypeScript exige anotar explícitamente el tipo de `app` y de cada `router` exportado (si no, ni el propio `app.ts` dado compila). Se agregaron las anotaciones `Express`/`Router` en `app.ts`, `auth.routes.ts` y `tickets.routes.ts`.
+- **`code` único** en `Ticket` para poder demostrar `11000` → 409, igual que en semanas anteriores.
+- **Corregí el mismo bug del `tsconfig.json`** encontrado en la semana 7 (`declaration: true` exige anotar explícitamente el tipo `Router`/`Express`) — se agregaron las anotaciones en `app.ts`, `auth.routes.ts`, `user.routes.ts` y `ticket.routes.ts`.
+- El service lanza `Error('FORBIDDEN')` cuando un usuario intenta editar un ticket ajeno; el controller lo traduce a `AppError(403, ...)` — mismo patrón que ya traía el starter comentado, solo se activó.
