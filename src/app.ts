@@ -3,7 +3,7 @@ import express, { Express } from 'express';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import cors from 'cors';
-import mongoSanitize from 'express-mongo-sanitize';
+import { sanitize } from './middlewares/sanitize';
 import authRoutes from './routes/auth.routes';
 import userRoutes from './routes/user.routes';
 import ticketRoutes from './routes/ticket.routes';
@@ -24,7 +24,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 // Sanitize inputs AFTER parsing, BEFORE routes
-app.use(mongoSanitize());
+app.use(sanitize);
 
 // Health check
 app.get('/api/v1/health', (_req, res) => {
