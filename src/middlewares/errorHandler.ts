@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { ZodError } from 'zod';
 import { AppError } from '../errors/AppError.js';
 
 export function errorHandler(err: Error, _req: Request, res: Response, _next: NextFunction): void {
@@ -6,6 +7,17 @@ export function errorHandler(err: Error, _req: Request, res: Response, _next: Ne
     res.status(err.statusCode).json({ error: err.message });
     return;
   }
+
+  // schema.parse() lanza ZodError cuando el body no cumple el schema —
+  // sin este caso, cualquier error de validación caía al 500 de abajo.
+  if (err instanceof ZodError) {
+    res.status(400).json({
+      error: 'Validation error',
+      details: err.issues.map((issue) => ({ path: issue.path.join('.'), message: issue.message })),
+    });
+    return;
+  }
+
   console.error(err);
   res.status(500).json({ error: 'Internal server error' });
 }

@@ -82,6 +82,32 @@ pnpm dev
 10. 6 intentos seguidos de `POST /auth/login` con contraseña incorrecta → el 6to debe dar **429**
 11. Revisar los headers de cualquier respuesta → debe verse `X-Content-Type-Options: nosniff` (Helmet) y `RateLimit-Remaining` (rate limit)
 
+## Testing (Semana 09)
+
+Suite completa con **Jest + ts-jest** (unit tests, mocks) y **Supertest + mongodb-memory-server** (integration tests, sin depender de Atlas ni de una DB real).
+
+```bash
+pnpm install
+cp .env.test.example .env.test   # o usa el .env.test ya incluido
+pnpm test              # corre toda la suite una vez
+pnpm test:watch        # modo watch
+pnpm test:coverage     # genera coverage/index.html
+```
+
+| Archivo | Tipo | Qué cubre |
+|---|---|---|
+| `src/__tests__/auth.service.test.ts` | Unit | `register`, `login`, `getMe` — repositorio de usuarios mockeado con `jest.mock()` |
+| `src/__tests__/ticket.service.test.ts` | Unit | `findAll`, `findById`, `create`, `update`, `remove` — modelo `Ticket` mockeado |
+| `src/__tests__/auth.integration.test.ts` | Integration | `POST /register` (201/409/400), `POST /login` (200/401), `GET /me` (200/401) |
+| `src/__tests__/ticket.integration.test.ts` | Integration | `POST` (201/400/409), `GET/:id` (200/404), `DELETE/:id` (403 sin admin / 200 con admin) |
+
+**Notas de implementación:**
+- `src/app.ts` exporta `{ app }` sin `listen()` — Supertest crea su propio servidor TCP temporal a partir de `app`, nunca se toca `server.ts` en los tests.
+- `src/__tests__/setup.ts` (referenciado en `jest.config.ts` vía `setupFiles`) carga `.env.test` y garantiza que `JWT_ACCESS_SECRET`/`JWT_REFRESH_SECRET` existan antes de importar cualquier módulo de la app.
+- `authLimiter`/`globalLimiter` (`src/config/security.ts`) se desactivan cuando `NODE_ENV=test` (`skip: () => process.env.NODE_ENV === 'test'`) — si no, una suite que hace varios `register`/`login` seguidos chocaría con el límite real de 5 req/15min y fallaría por `429`, no por un bug real.
+- Como el registro público siempre crea `role: 'user'`, las pruebas de rutas de admin insertan el usuario admin directo con el modelo `User` (igual que el seed de `server.ts`) y luego hacen login normal para obtener su token.
+- `jest.config.ts` incluye `moduleNameMapper` para resolver imports con extensión `.js` que apuntan a archivos `.ts` (estilo del proyecto) — sin esto, Jest no encuentra los módulos aunque `tsc` compile bien.
+
 ## Decisiones de diseño
 
 - **`code` único** en `Ticket` para poder demostrar `11000` → 409, igual que en semanas anteriores.
