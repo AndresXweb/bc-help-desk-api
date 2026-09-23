@@ -24,7 +24,12 @@ export async function create(data: CreateTicketDto, userId: string): Promise<ITi
   try {
     return await Ticket.create({ ...data, createdBy: userId });
   } catch (err: unknown) {
-    if (typeof err === 'object' && err !== null && 'code' in err && (err as { code?: number }).code === 11000) {
+    if (
+      typeof err === 'object' &&
+      err !== null &&
+      'code' in err &&
+      (err as { code?: number }).code === 11000
+    ) {
       throw new AppError(409, `Ya existe un ticket con code "${data.code}"`);
     }
     throw err;
@@ -45,7 +50,10 @@ export async function update(
     throw new Error('FORBIDDEN'); // capturado en el controller → AppError(403)
   }
 
-  return Ticket.findByIdAndUpdate(id, data, { new: true, runValidators: true });
+  return Ticket.findByIdAndUpdate(id, data, {
+    returnDocument: 'after',
+    runValidators: true,
+  });
 }
 
 export async function remove(id: string): Promise<ITicket | null> {

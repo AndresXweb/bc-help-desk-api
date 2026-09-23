@@ -28,6 +28,7 @@ const config: Config = {
   collectCoverageFrom: [
     'src/**/*.ts',
     '!src/server.ts', // entry point — no se testea directamente
+    '!src/lib/mongoose.ts', // conexión real; en tests usas memory server
     '!src/types/**',
     '!src/**/*.d.ts',
   ],

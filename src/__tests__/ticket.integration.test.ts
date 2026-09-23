@@ -246,4 +246,14 @@ describe('DELETE /api/v1/tickets/:id', () => {
 
     expect(res.status).toBe(200);
   });
+
+  it('should return 404 when admin deletes a non-existent ticket', async () => {
+    const adminToken = await loginAs('admin', 'admin404@test.com');
+
+    const res = await request(app)
+      .delete('/api/v1/tickets/507f1f77bcf86cd799439011')
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(404);
+  });
 });

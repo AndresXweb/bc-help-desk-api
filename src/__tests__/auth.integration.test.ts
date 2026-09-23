@@ -23,6 +23,15 @@ afterAll(async () => {
   await mongod.stop();
 });
 
+describe('GET /api/v1/health', () => {
+  it('should return 200 with status ok', async () => {
+    const res = await request(app).get('/api/v1/health');
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('ok');
+    expect(res.body.timestamp).toEqual(expect.any(String));
+  });
+});
+
 describe('POST /api/v1/auth/register', () => {
   it('should return 201 and the created user (without password) on valid data', async () => {
     const res = await request(app).post('/api/v1/auth/register').send({
@@ -88,7 +97,9 @@ describe('POST /api/v1/auth/login', () => {
 
     const token = loginRes.body.accessToken as string;
 
-    const meRes = await request(app).get('/api/v1/auth/me').set('Authorization', `Bearer ${token}`);
+    const meRes = await request(app)
+      .get('/api/v1/auth/me')
+      .set('Authorization', `Bearer ${token}`);
 
     expect(meRes.status).toBe(200);
     expect(meRes.body.data.email).toBe('alice@test.com');
@@ -98,6 +109,13 @@ describe('POST /api/v1/auth/login', () => {
 describe('GET /api/v1/auth/me', () => {
   it('should return 401 without an Authorization header', async () => {
     const res = await request(app).get('/api/v1/auth/me');
+    expect(res.status).toBe(401);
+  });
+
+  it('should return 401 with an invalid token', async () => {
+    const res = await request(app)
+      .get('/api/v1/auth/me')
+      .set('Authorization', 'Bearer not-a-valid-jwt');
     expect(res.status).toBe(401);
   });
 });
