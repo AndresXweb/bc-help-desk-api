@@ -1,3 +1,7 @@
 allowBuilds:
   bcrypt: true
+<<<<<<< HEAD
   esbuild: true
+=======
+  esbuild: true
+>>>>>>> 7242030c96fd57108c9633de35caa1e34f876bef

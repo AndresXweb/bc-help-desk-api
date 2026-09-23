@@ -1,7 +1,7 @@
 // ============================================
 // MODELO — Ticket (recurso principal del dominio Help Desk)
 // ============================================
-import mongoose, { Document, Schema } from 'mongoose';
+import { Schema, model, Document } from 'mongoose';
 
 export type TicketStatus = 'open' | 'in_progress' | 'closed';
 export type TicketPriority = 'low' | 'medium' | 'high';
@@ -14,7 +14,8 @@ export interface ITicket extends Document {
   priority: TicketPriority;
   estimatedHours: number;
   agentId?: string;
-  createdBy: mongoose.Types.ObjectId; // usuario autenticado que creó el ticket
+  active: boolean;
+  createdBy: string; // user ID — usado para la regla "dueño O admin" en PATCH
   createdAt: Date;
   updatedAt: Date;
 }
@@ -57,13 +58,10 @@ const ticketSchema = new Schema<ITicket>(
       min: [0.5, 'estimatedHours debe ser mayor o igual a 0.5'],
     },
     agentId: { type: String, trim: true },
-    createdBy: {
-      type: Schema.Types.ObjectId,
-      ref: 'User',
-      required: true,
-    },
+    active: { type: Boolean, default: true },
+    createdBy: { type: String, required: true }, // user ID
   },
   { timestamps: true }
 );
 
-export const TicketModel = mongoose.model<ITicket>('Ticket', ticketSchema);
+export const Ticket = model<ITicket>('Ticket', ticketSchema);

@@ -1,14 +1,6 @@
 import mongoose from 'mongoose';
 
-export async function connectDB(): Promise<void> {
-  const uri = process.env.MONGODB_URI;
-  if (!uri) throw new Error('MONGODB_URI is not defined in environment variables');
-
+export async function connectDB(uri: string): Promise<void> {
   await mongoose.connect(uri);
   console.log('MongoDB connected');
-}
-
-export async function disconnectDB(): Promise<void> {
-  await mongoose.disconnect();
-  console.log('MongoDB disconnected');
 }
